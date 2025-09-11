@@ -6,6 +6,8 @@ const prisma = new PrismaClient();
 
 app.use(express.json());
 
+app.use("/", require("./routes/signup"));
+
 app.get("/", (req, res) => {
   res.send("Hello, Abhinav 🚀 Your Node.js + Prisma server is working!");
 });
