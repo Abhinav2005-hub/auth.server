@@ -4,9 +4,13 @@ const jwt = require("jsonwebtoken");
 const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
-const JWT_SECRET = "your_secret_key"; // move to .env
+// const JWT_SECRET = "abhinav@123"; // move to .env
 const signupRouter = express.Router();
 
+require("dotenv").config();
+
+const JWT_SECRET = process.env.JWT_SECRET;
+console.log(JWT_SECRET, '-------');
 // Browser test route
 signupRouter.get("/", (req, res) => {
   res.send(`
