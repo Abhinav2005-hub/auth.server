@@ -1,6 +1,7 @@
 const express = require("express");
 // const { PrismaClient } = require("@prisma/client");
 const errorHandler = require("./middleware/errorHandler");
+const client = require("./db/redisClient");
 
 const app = express();
 // const prisma = new PrismaClient();
@@ -12,8 +13,10 @@ app.use(express.json());
 app.use("/signup", require("./routes/signup"));
 app.use("/profile", require("./routes/profile"));
 
-app.get("/", (req, res) => {
-  res.send("Hello, Abhinav 🚀 Your Node.js + Prisma server is working!");
+app.get("/", async (req, res) => {
+  await client.set("welcome", "Hello Abhinav 🚀");
+  const value = await client.get("welcome");
+  res.send(value);
 });
 
 app.use(errorHandler);
