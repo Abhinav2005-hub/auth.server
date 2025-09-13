@@ -6,8 +6,10 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const profileRouter = express.Router();
 
+// GET: /profile/
 profileRouter.get("/", authMiddleware, getProfile);
 
+// GET: /profile/users
 profileRouter.get("/users", async (req, res) => {
   try {
     let { page, limit } = req.query;
