@@ -11,6 +11,7 @@ app.use(express.json());
 
 // Mount signup routes at /signup
 app.use("/signup", require("./routes/signup"));
+app.use("/signin", require("./routes/signin"));
 app.use("/profile", require("./routes/profile"));
 
 app.get("/", async (req, res) => {
