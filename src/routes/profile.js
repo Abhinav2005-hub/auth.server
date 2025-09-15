@@ -2,7 +2,6 @@ const express = require("express");
 const authMiddleware = require("../middleware/auth");
 const { getProfile } = require("../controllers/profile");
 const { PrismaClient } = require("@prisma/client");
-const client = require("../db/redisClient");
 
 const prisma = new PrismaClient();
 const profileRouter = express.Router();
