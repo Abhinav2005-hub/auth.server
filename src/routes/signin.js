@@ -2,6 +2,7 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { PrismaClient } = require("@prisma/client");
+const redisClient = require("../config/redis");  // import redis client
 
 const prisma = new PrismaClient();
 const signinRouter = express.Router();
@@ -42,7 +43,14 @@ signinRouter.post("/", async (req, res) => {
     }
 
     // Generate JWT
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || "secretkey", { expiresIn: "1h" });
+    const token = jwt.sign(
+      { userId: user.id },
+      process.env.JWT_SECRET || "secretkey",
+      { expiresIn: "1h" }
+    );
+
+    // Save token in Redis (expire in 1 hour = 3600 sec)
+    await redisClient.setEx(`token:${user.id}`, 3600, token);
 
     res.json({
       message: "Signin successful",
@@ -54,5 +62,19 @@ signinRouter.post("/", async (req, res) => {
     res.status(500).send("Signin failed");
   }
 });
+
+// logout
+signinRouter.post("/logout", async (req, res) => {
+    try {
+      const { userId } = req.body; // frontend should send userId OR extract from JWT
+      if (!userId) return res.status(400).json({ error: "User ID required for logout" });
+  
+      await redisClient.del(`token:${userId}`);
+      res.json({ message: "Logged out successfully" });
+    } catch (err) {
+      console.error("Logout error:", err);
+      res.status(500).json({ error: "Logout failed" });
+    }
+  });
 
 module.exports = signinRouter;
