@@ -2,10 +2,15 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { PrismaClient } = require("@prisma/client");
+const { signup, verifyOtp } = require("../controllers/signupController");
 
 const prisma = new PrismaClient();
 // const JWT_SECRET = "abhinav@123"; // move to .env
 const signupRouter = express.Router();
+
+// Routes
+signupRouter.post("/", signup);        // handles signup + OTP generation
+signupRouter.post("/verify-otp", verifyOtp); // handles OTP verification
 
 require("dotenv").config();
 
