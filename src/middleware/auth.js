@@ -1,37 +1,35 @@
 const jwt = require("jsonwebtoken");
 const redisClient = require("../config/redis");
-
 require("dotenv").config();
-const JWT_SECRET = process.env.JWT_SECRET || "secretkey";
+
+const JWT_SECRET = process.env.JWT_SECRET || "secret";
 
 async function authMiddleware(req, res, next) {
-  const authHeader = req.headers["authorization"]; // fixed
-
-  if (!authHeader) {
-    return res.status(401).json({ error: "Authorization header missing" });
-  }
-
-  const token = authHeader.split(" ")[1];
-
-  if (!token) {
-    return res.status(401).json({ error: "Token missing" });
-  }
-
   try {
-    // Verify JWT
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    // Check if token exists in Redis
-    const storedToken = await redisClient.get(`token:${decoded.userId}`);
-    if (!storedToken || storedToken !== token) {
-      return res.status(401).json({ error: "Invalid or expired token" });
+    const authHeader = req.headers["authorization"];
+    if (!authHeader) {
+      return res.status(401).json({ error: "No token provided" });
     }
 
-    req.userId = decoded.userId; // attach user ID to request
+    const token = authHeader.split(" ")[1];
+    if (!token) {
+      return res.status(401).json({ error: "Invalid token format" });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    // Check Redis for token
+    const storedToken = await redisClient.get(`user:${decoded.userId}:token`);
+    if (!storedToken || storedToken !== token) {
+      return res.status(401).json({ error: "Session expired. Please login again." });
+    }
+
+    req.userId = decoded.userId;
     next();
   } catch (err) {
     console.error("Auth error:", err);
-    return res.status(403).json({ error: "Unauthorized" });
+    res.status(401).json({ error: "Unauthorized" });
   }
 }
 
