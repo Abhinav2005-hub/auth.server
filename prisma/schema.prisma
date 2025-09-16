@@ -17,7 +17,7 @@ model Signup {
   id           Int      @id @default(autoincrement())
   name         String
   email        String   @unique
-  password     String   // hashed password
+  password     String
   otp          String
   otpExpiresAt DateTime
   createdAt    DateTime @default(now())
