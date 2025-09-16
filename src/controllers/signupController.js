@@ -30,6 +30,7 @@ async function signup(req, res) {
       // hash password + generate OTP
       const hashedPassword = await bcrypt.hash(password, 10);
       const otp = generateOTP();
+      console.log("OTP")
       const otpExpiresAt = new Date(Date.now() + OTP_EXPIRY);
   
       // save temporarily in signup table
@@ -82,25 +83,33 @@ async function verifyOtp(req, res) {
       return res.status(400).json({ error: "Invalid OTP" });
     }
 
-    const newUser = await prisma.user.create({
-      data: {
-        name: signupRow.name,
-        email: signupRow.email,
-        password: signupRow.password,
-      },
-    });
-
-    await prisma.signup.delete({ where: { id: signupRow.id } });
-
-    const token = jwt.sign({ userId: newUser.id }, JWT_SECRET, {
-      expiresIn: "1h",
-    });
-
-    res.status(201).json({
-      message: "User verified & created",
-      user: newUser,
-      token,
-    });
+     // Create user in main table
+     const newUser = await prisma.user.create({
+        data: {
+          name: signupRow.name,
+          email: signupRow.email,
+          password: signupRow.password,
+        },
+      });
+  
+      // Remove temp signup row
+      await prisma.signup.delete({ where: { id: signupRow.id } });
+  
+      // Generate JWT
+      const token = jwt.sign({ userId: newUser.id }, JWT_SECRET, {
+        expiresIn: "1h",
+      });
+  
+      // Save JWT in Redis
+      await redisClient.set(`user:${newUser.id}:token`, token, {
+        EX: 3600, // expire in 1 hour
+      });
+  
+      res.status(201).json({
+        message: "User verified & created",
+        user: newUser,
+        token,
+      });
   } catch (err) {
     console.error("OTP verification error:", err);
     res.status(500).json({ error: "Verification failed" });
