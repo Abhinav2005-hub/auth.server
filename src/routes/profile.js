@@ -47,4 +47,24 @@ profileRouter.get("/users", async (req, res) => {
   }
 });
 
+// Post: /profile/logout
+profileRouter.post("/logout", authMiddleware, async (req, res) => {
+    try {
+        const authHeader = req.headers["authorization"];
+        const token = authHeader && authHeader.split(" ")[1];
+
+        if (!token) {
+            return res.status(400).json({ error: "Token missing" });
+        }
+
+        //Delete JWT from redis
+        await client.del(`jwt:${req.userId}`);
+
+        res.json({ message: "Logged out successfully" });
+    } catch (err) {
+        console.error("Logout error:", err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
 module.exports = profileRouter;

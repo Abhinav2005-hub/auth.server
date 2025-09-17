@@ -20,7 +20,7 @@ async function authMiddleware(req, res, next) {
     const decoded = jwt.verify(token, JWT_SECRET);
 
     // Check Redis for token
-    const storedToken = await redisClient.get(`user:${decoded.userId}:token`);
+    const storedToken = await redisClient.get(`jwt:${decoded.userId}`);
     if (!storedToken || storedToken !== token) {
       return res.status(401).json({ error: "Session expired. Please login again." });
     }
