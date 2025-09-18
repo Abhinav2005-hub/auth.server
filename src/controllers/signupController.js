@@ -2,6 +2,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { PrismaClient } = require("@prisma/client");
+const redisClient = require("../config/redis");
 require("dotenv").config();
 
 const prisma = new PrismaClient();
@@ -101,9 +102,8 @@ async function verifyOtp(req, res) {
       });
   
       // Save JWT in Redis
-      await redisClient.set(`user:${newUser.id}:token`, token, {
-        EX: 3600, // expire in 1 hour
-      });
+      await redisClient.set(`token:${newUser.id}`, token, { EX: 3600 });
+      console.log("Saved in Redis:", newUser.id, token);
   
       res.status(201).json({
         message: "User verified & created",
