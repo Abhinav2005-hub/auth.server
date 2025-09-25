@@ -1,14 +1,17 @@
 const express = require("express");
+const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { PrismaClient } = require("@prisma/client");
-const redisClient = require("../config/redis");  // import redis client
+const redisClient = require("../config/redis");
+
+require("dotenv").config();
 
 const prisma = new PrismaClient();
-const signinRouter = express.Router();
+const router = express.Router();
+const JWT_SECRET = process.env.JWT_SECRET || "secretkey";
 
-// For browser GET request (Signin form)
-signinRouter.get("/", (req, res) => {
+// GET: Signin form for browser testing
+router.get("/", (req, res) => {
   res.send(`
     <h1>Signin Page</h1>
     <form action="/signin" method="POST">
@@ -21,60 +24,39 @@ signinRouter.get("/", (req, res) => {
   `);
 });
 
-// Actual signin POST
-signinRouter.post("/", async (req, res) => {
+// POST: Signin with email/password
+router.post("/", async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).send("Email and password are required");
+      return res.status(400).json({ error: "Email and password are required" });
     }
 
-    // Find user by email in Prisma
+    // Find user in main User table
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      return res.status(400).send("Invalid credentials");
-    }
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    // Compare password
+    // Check password
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).send("Invalid credentials");
-    }
+    if (!isMatch) return res.status(400).json({ error: "Incorrect password" });
 
     // Generate JWT
-    const token = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_SECRET || "secretkey",
-      { expiresIn: "1h" }
-    );
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "1h" });
 
-    // Save token in Redis (expire in 1 hour = 3600 sec)
+    // Save JWT in Redis for session management
     await redisClient.setEx(`token:${user.id}`, 3600, token);
 
     res.json({
-      message: "Signin successful",
+      message: "Login successful",
       user: { id: user.id, name: user.name, email: user.email },
       token,
     });
-  } catch (error) {
-    console.error("Signin error:", error);
-    res.status(500).send("Signin failed");
+  } catch (err) {
+    console.error("Signin error:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// logout
-signinRouter.post("/logout", async (req, res) => {
-    try {
-      const { userId } = req.body; // frontend should send userId OR extract from JWT
-      if (!userId) return res.status(400).json({ error: "User ID required for logout" });
-  
-      await redisClient.del(`token:${userId}`);
-      res.json({ message: "Logged out successfully" });
-    } catch (err) {
-      console.error("Logout error:", err);
-      res.status(500).json({ error: "Logout failed" });
-    }
-  });
+module.exports = router;
 
-module.exports = signinRouter;
