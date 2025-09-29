@@ -21,10 +21,10 @@ signupRouter.get("/", (req, res) => {
 
     <hr>
 
-    <h2>Verify OTP</h2>
+    <h3>Verify OTP</h3>
     <form action="/signup/verify-otp" method="POST">
-      <input type="email" name="email" placeholder="Enter email" required /><br><br>
-      <input type="text" name="otp" placeholder="Enter OTP" required /><br><br>
+      <input type="text" name="otp" placeholder="Enter OTP" required />
+      <br><br>
       <button type="submit">Verify OTP</button>
     </form>
   `);

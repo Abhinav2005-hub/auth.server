@@ -6,14 +6,15 @@ const redisClient = require("../config/redis");
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
 
+// OTP settings
+const OTP_EXPIRY = 5 * 60; // 5 minutes in seconds
+
 // Generate 4-digit OTP
 function generateOTP() {
   return Math.floor(1000 + Math.random() * 9000).toString();
 }
 
-const OTP_EXPIRY = 5 * 60 * 1000; // 5 minutes
-
-// Signup: Save user in temporary table + send OTP
+// SIGNUP
 async function signup(req, res) {
   try {
     const { name, email, password } = req.body;
@@ -21,12 +22,15 @@ async function signup(req, res) {
       return res.status(400).json({ error: "All fields are required" });
     }
 
+    // Check if user already exists
     const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) return res.status(400).json({ error: "User already exists" });
+    if (existingUser) {
+      return res.status(400).json({ error: "User already exists" });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const otp = generateOTP();
-    const otpExpiresAt = new Date(Date.now() + OTP_EXPIRY);
+    const otpExpiresAt = new Date(Date.now() + OTP_EXPIRY * 1000);
 
     // Save in temporary signup table
     await prisma.signup.upsert({
@@ -35,7 +39,7 @@ async function signup(req, res) {
       create: { name, email, password: hashedPassword, otp, otpExpiresAt },
     });
 
-    console.log(`OTP for ${email}: ${otp}`); // For testing, replace with email/SMS
+    console.log(`OTP for ${email}: ${otp}`); // replace with email/SMS in real app
 
     res.status(201).json({ message: "Signup initiated. Please verify OTP." });
   } catch (err) {
@@ -44,21 +48,27 @@ async function signup(req, res) {
   }
 }
 
-// Verify OTP: Move user to main table + generate JWT
+// VERIFY OTP
 async function verifyOtp(req, res) {
   try {
-    const { email, otp } = req.body;
-    if (!email || !otp) return res.status(400).json({ error: "Email and OTP required" });
-
-    const signupRow = await prisma.signup.findUnique({ where: { email } });
-    if (!signupRow) return res.status(400).json({ error: "No signup request found" });
-
-    if (new Date() > signupRow.otpExpiresAt) {
-      await prisma.signup.delete({ where: { email } });
-      return res.status(400).json({ error: "OTP expired. Please signup again." });
+    const { otp } = req.body;
+    if (!otp) {
+      return res.status(400).json({ error: "OTP is required" });
     }
 
-    if (signupRow.otp !== otp) return res.status(400).json({ error: "Invalid OTP" });
+    // Find signup row by OTP
+    const signupRow = await prisma.signup.findFirst({
+      where: { otp },
+    });
+
+    if (!signupRow) {
+      return res.status(400).json({ error: "Invalid or expired OTP" });
+    }
+
+    // Check expiry
+    if (signupRow.otpExpiresAt < new Date()) {
+      return res.status(400).json({ error: "OTP expired" });
+    }
 
     // Move user to main User table
     const newUser = await prisma.user.create({
@@ -69,7 +79,8 @@ async function verifyOtp(req, res) {
       },
     });
 
-    await prisma.signup.delete({ where: { email } });
+    // Cleanup: delete signup row
+    await prisma.signup.delete({ where: { email: signupRow.email } });
 
     // Generate JWT & save in Redis
     const token = jwt.sign({ userId: newUser.id }, JWT_SECRET, { expiresIn: "1h" });
@@ -87,4 +98,3 @@ async function verifyOtp(req, res) {
 }
 
 module.exports = { signup, verifyOtp };
-
