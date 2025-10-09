@@ -3,6 +3,7 @@ const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const redisClient = require("../config/redis");
+const { signin } = require("../controllers/signinController"); 
 
 require("dotenv").config();
 
@@ -23,6 +24,10 @@ router.get("/", (req, res) => {
     </form>
   `);
 });
+
+
+// POST: Use controller function instead of inline logic
+router.post("/", signin);
 
 // POST: Signin with email/password
 router.post("/", async (req, res) => {
